@@ -1,0 +1,54 @@
+package com.atguigu.day03.sink;
+
+import com.alibaba.fastjson.JSON;
+import com.atguigu.bean.WaterSensor;
+import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
+import org.apache.flink.streaming.connectors.elasticsearch6.ElasticsearchSink;
+import org.apache.http.HttpHost;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.common.xcontent.XContentType;
+
+import java.util.ArrayList;
+
+/**
+ * @ClassName Flink03_Sink_ES
+ * @Description TODO
+ * @Author ASUS
+ * @Date 2021/7/14 18:22
+ * @Version 1.0
+ **/
+public class Flink03_Sink_ES {
+    public static void main(String[] args) throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        env.setParallelism(1);
+
+        DataStreamSource<String> source = env.socketTextStream("hadoop102", 9999);
+
+        SingleOutputStreamOperator<WaterSensor> waterSensor = source.flatMap((FlatMapFunction<String
+                , WaterSensor>) (line, out) -> {
+            String[] split = line.split(",");
+            out.collect(new WaterSensor(split[0], Long.parseLong(split[1]), Integer.parseInt(split[2])));
+        }).returns(WaterSensor.class);
+
+        ArrayList<HttpHost> httpHosts = new ArrayList<>();
+        httpHosts.add(new HttpHost("hadoop102", 9200));
+        httpHosts.add(new HttpHost("hadoop103", 9200));
+        httpHosts.add(new HttpHost("hadoop104", 9200));
+
+        ElasticsearchSink.Builder<WaterSensor> waterSensorBuilder = new ElasticsearchSink.Builder<>(httpHosts,
+                (ElasticsearchSinkFunction<WaterSensor>) (element, ctx, indexer) -> {
+                    indexer.add(new IndexRequest("sensor", "_doc",
+                            element.getId()).source(JSON.toJSONString(element), XContentType.JSON));
+                });
+        waterSensorBuilder.setBulkFlushMaxActions(1);
+
+        waterSensor.addSink(waterSensorBuilder.build());
+
+        env.execute();
+    }
+}
