@@ -3,6 +3,7 @@ package com.atguigu.day06;
 import com.atguigu.bean.WaterSensor;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
@@ -23,6 +24,8 @@ public class Flink05_MapState {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         env.setParallelism(1);
+
+
 
         DataStreamSource<String> source = env.socketTextStream("hadoop102", 9999);
 
