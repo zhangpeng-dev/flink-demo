@@ -1,11 +1,11 @@
-package com.atguigu.day08;
+package com.atguigu.day09;
 
 import com.atguigu.bean.WaterSensor;
 import org.apache.flink.api.common.eventtime.SerializableTimestampAssigner;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
 import java.time.Duration;
@@ -13,13 +13,13 @@ import java.time.Duration;
 import static org.apache.flink.table.api.Expressions.$;
 
 /**
- * @ClassName Flink10_SQL_EventTime
+ * @ClassName Flink01_OverWindow
  * @Description TODO
  * @Author ASUS
- * @Date 2021/7/21 18:31
+ * @Date 2021/7/22 10:44
  * @Version 1.0
  **/
-public class Flink10_SQL_EventTime {
+public class Flink01_OverWindow {
     public static void main(String[] args) {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -38,6 +38,15 @@ public class Flink10_SQL_EventTime {
 
         StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env);
 
-        tableEnv.fromDataStream(waterSensorStream,$("id"),$("ts"),$("vc"),$("et").rowtime()).execute().print();
+        Table table = tableEnv.fromDataStream(waterSensorStream, $("id"), $("ts"), $("vc"), $("et").rowtime());
+
+        tableEnv.createTemporaryView("sensor", table);
+
+        tableEnv.executeSql("select id ,sum(vc) over(partition by id order by et) from sensor").print();
+
+        tableEnv.executeSql("select id,sum(vc) sumVc from sensor group by tumble(et,interval '2' second),id").print();
+
+        tableEnv.executeSql("select id,sum(vc) from sensor group by hop(et,interval '2' second,interval '4' second),id").print();
+
     }
 }
